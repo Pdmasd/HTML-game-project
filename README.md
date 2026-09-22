@@ -20,7 +20,7 @@ npm install
 npm start
 ```
 
-Mở http://localhost:3000 trong trình duyệt.  Server tĩnh + Socket.IO
+Mở https://html-game-project.onrender.com/ trong trình duyệt.  Server tĩnh + Socket.IO
 đều do `server.js` phục vụ.
 
 Chế độ **Hotseat** (2 người 1 máy) cũng chạy tốt nếu bạn chỉ mở thẳng
