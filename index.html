@@ -12,7 +12,7 @@
       <h1>Oẳn Tù Tì v2 <span class="sub">— 2 người chơi trên bàn 9×9</span></h1>
       <div class="mode-switch">
         <label><input type="radio" name="mode" value="hotseat" checked /> Chung máy (Hotseat)</label>
-        <label><input type="radio" name="mode" value="online" /> Trực tuyến (PlayroomKit)</label>
+        <label><input type="radio" name="mode" value="online" /> Trực tuyến (Socket.IO)</label>
       </div>
     </header>
 
@@ -71,7 +71,7 @@
     </div>
 
     <div class="modal hidden" id="netModal">
-      <div class="modal-card">
+      <div class="modal-card net-card">
         <h2>Chế độ trực tuyến</h2>
         <p id="netInfo">Đang khởi tạo phòng chơi...</p>
         <div id="netExtras"></div>
@@ -80,6 +80,7 @@
     </div>
   </div>
 
+  <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
   <script src="multiplayer.js"></script>
 </body>

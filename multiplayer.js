@@ -1,230 +1,228 @@
-/* multiplayer.js
+/* multiplayer.js — Lớp mạng dùng Socket.IO
  *
- *  Trực tuyến qua PlayroomKit (https://joinplayroom.com/).
- *  Load động từ CDN khi người dùng bật "Trực tuyến".  Không dùng server tự dựng —
- *  PlayroomKit lo phần signalling & sync trạng thái phòng.
+ *  Người chơi 1: bấm "Tạo phòng mới" -> nhận mã 5 ký tự.
+ *  Người chơi 2: nhập mã vào ô -> "Vào phòng".
+ *  Server (server.js) giữ danh sách phòng và relay nước đi giữa 2 client.
  *
- *  Cách phân vai:
- *    Người vào phòng đầu tiên = Người chơi 1 (đỏ), người thứ hai = Người chơi 2 (xanh).
- *    Host (P1) là "authority" duy nhất viết vào state 'game'.
- *    Người chơi ở lượt sẽ tính nước cục bộ rồi gửi qua RPC 'move' cho tất cả.
- *
- *  Nếu import PlayroomKit thất bại (mạng chặn, ngoại tuyến...) ta fallback về
- *  BroadcastChannel để 2 tab trên cùng máy vẫn chơi được — phục vụ dev/test.
+ *  Hợp đồng với game.js không đổi:
+ *    - window._online.active         : boolean, true khi đang chơi online
+ *    - window._online.myPlayer       : 1 hoặc 2
+ *    - window._online.broadcastMove  : gửi 1 nước đi cho đối thủ
+ *    - window._online.broadcastNew   : báo ván mới
  */
-
-const PLAYROOM_CDN = 'https://cdn.jsdelivr.net/npm/playroomkit@0.0.63/multiplayer.js';
 
 window._online = { active: false, myPlayer: null };
 
-let PR = null;                // PlayroomKit module (nếu load được)
-let bc  = null;               // BroadcastChannel fallback
-let assignedPlayers = new Map(); // playerId -> playerNumber (host tự quản)
+let socket = null;
+let currentCode = null;
+
+/* ------------- Public entry points ------------- */
 
 async function startOnline() {
-  const modal = document.getElementById('netModal');
-  const info  = document.getElementById('netInfo');
+  openNetModal();
+  const info = document.getElementById('netInfo');
   const extras = document.getElementById('netExtras');
-  modal.classList.remove('hidden');
-  info.textContent = 'Đang tải PlayroomKit từ CDN...';
+
+  if (!window.io) {
+    info.innerHTML =
+      'Không tải được thư viện <code>socket.io</code>.<br>' +
+      'Hãy chạy server ở thư mục dự án: <code>npm install &amp;&amp; npm start</code>, ' +
+      'rồi mở <code>http://localhost:3000</code>.';
+    extras.innerHTML = '';
+    return;
+  }
+
+  info.textContent = 'Đang kết nối tới máy chủ...';
   extras.innerHTML = '';
 
-  try {
-    PR = await import(PLAYROOM_CDN);
-  } catch (err) {
-    info.innerHTML =
-      'Không tải được PlayroomKit (' + escapeHtml(err.message) + ').<br>' +
-      'Chuyển sang chế độ <b>2 tab trên cùng máy</b> (BroadcastChannel) để bạn vẫn thử được.';
-    startBroadcastFallback();
-    return;
+  if (!socket) {
+    socket = io();
+    bindSocketEvents();
+    installBroadcast();
   }
 
-  info.textContent = 'Đang mở lobby của PlayroomKit — chờ người thứ hai vào phòng...';
-  extras.innerHTML =
-    '<div class="share-box">Chia sẻ URL trên thanh địa chỉ (do PlayroomKit thêm ?r=...) ' +
-    'cho bạn của bạn để họ vào cùng phòng.</div>';
-
-  try {
-    await PR.insertCoin({
-      gameId: 'ottv2-vn',
-      maxPlayersPerRoom: 2,
-      matchmaking: true,
-      skipLobby: false,
-    });
-  } catch (err) {
-    info.textContent = 'PlayroomKit báo lỗi: ' + err.message;
-    return;
+  if (socket.connected) {
+    showLobby();
+  } else {
+    socket.once('connect', showLobby);
   }
-
-  window._online.active = true;
-
-  // Khi có người vào — host phân vai
-  PR.onPlayerJoin((playerState) => {
-    if (PR.isHost()) {
-      // Host gán số thứ tự dựa trên số người đã có
-      const already = [...assignedPlayers.values()];
-      const next = already.includes(1) ? 2 : 1;
-      assignedPlayers.set(playerState.id, next);
-      playerState.setState('num', next, true);
-
-      // Nếu đã đủ 2 người: gửi state game hiện tại
-      if (assignedPlayers.size >= 2) {
-        PR.setState('game', window.OTT.serialize(), true);
-      }
-    }
-
-    playerState.onQuit(() => {
-      if (PR.isHost()) assignedPlayers.delete(playerState.id);
-      appendNetLog(`Người chơi rời phòng: ${playerState.id.slice(0,6)}`);
-    });
-  });
-
-  // Lấy số của mình khi host gán
-  const me = PR.myPlayer();
-  const pollMyNum = setInterval(() => {
-    const n = me.getState('num');
-    if (n) {
-      clearInterval(pollMyNum);
-      window._online.myPlayer = n;
-      info.innerHTML = `Bạn là <b>Người chơi ${n}</b>.  Sẵn sàng — chúc vui!`;
-      OTT.render();
-    }
-  }, 200);
-
-  // Đồng bộ state game khi có thay đổi
-  PR.onPlayerJoin && setInterval(() => {
-    const g = PR.getState('game');
-    if (g && g.__v !== window._online.lastV) {
-      window._online.lastV = g.__v;
-      OTT.loadFrom(g);
-    }
-  }, 150);
-
-  // Nhận nước đi từ đối thủ qua RPC
-  PR.RPC.register('move', async (data, caller) => {
-    // caller.id === người gửi; ta áp dụng nước đi cục bộ
-    const { fromR, fromC, toR, toC, byPlayer } = data;
-    if (byPlayer !== OTT.state.turn) return; // out of order
-    if (window._online.myPlayer === byPlayer) return; // đã áp dụng cục bộ rồi
-    OTT.applyMove(fromR, fromC, toR, toC);
-    OTT.render();
-  });
-  PR.RPC.register('new', async () => {
-    OTT.newGame();
-    OTT.render();
-    document.getElementById('winModal').classList.add('hidden');
-  });
-
-  // Expose broadcast functions cho game.js
-  window._online.broadcastMove = (m) => {
-    PR.RPC.call('move', { ...m, byPlayer: window._online.myPlayer }, PR.RPC.Mode.OTHERS);
-    // Host cũng cập nhật state để player mới vào giữa chừng vẫn thấy
-    if (PR.isHost()) {
-      const s = OTT.serialize();
-      s.__v = (window._online.lastV || 0) + 1;
-      window._online.lastV = s.__v;
-      PR.setState('game', s, true);
-    }
-  };
-  window._online.broadcastNew = () => {
-    PR.RPC.call('new', {}, PR.RPC.Mode.OTHERS);
-    if (PR.isHost()) {
-      const s = OTT.serialize();
-      s.__v = (window._online.lastV || 0) + 1;
-      window._online.lastV = s.__v;
-      PR.setState('game', s, true);
-    }
-  };
 }
 
 function stopOnline() {
   window._online.active = false;
   window._online.myPlayer = null;
-  window._online.broadcastMove = null;
-  window._online.broadcastNew = null;
-  if (bc) { bc.close(); bc = null; }
+  currentCode = null;
+  if (socket) {
+    socket.emit('leaveRoom');
+    socket.disconnect();
+    socket = null;
+  }
   document.getElementById('netModal').classList.add('hidden');
   OTT.render();
-  // PlayroomKit không cung cấp API leaveRoom clean — cần reload để hoàn toàn ngắt.
-  // Ta chỉ tắt cờ, các callback sẽ no-op.
 }
 
-/* -------------- BroadcastChannel fallback (2 tab cùng máy) -------------- */
+window.startOnline = startOnline;
+window.stopOnline  = stopOnline;
 
-function startBroadcastFallback() {
-  bc = new BroadcastChannel('ottv2-local');
-  const myId = Math.random().toString(36).slice(2, 8);
-  let myNum = null;
-  const peers = new Set();
+/* ------------- UI: modal & lobby ------------- */
 
-  bc.postMessage({ t: 'hello', id: myId });
+function openNetModal() {
+  document.getElementById('netModal').classList.remove('hidden');
+}
 
-  bc.onmessage = (ev) => {
-    const m = ev.data;
-    if (m.t === 'hello') {
-      peers.add(m.id);
-      bc.postMessage({ t: 'hi', id: myId, to: m.id });
-      assignNumbers();
-    } else if (m.t === 'hi' && m.to === myId) {
-      peers.add(m.id);
-      assignNumbers();
-    } else if (m.t === 'assign' && m.to === myId) {
-      myNum = m.num;
-      window._online.myPlayer = myNum;
-      document.getElementById('netInfo').innerHTML =
-        `Bạn là <b>Người chơi ${myNum}</b> (2-tab local). Mở tab khác cùng URL để thử.`;
-      OTT.render();
-    } else if (m.t === 'state') {
-      OTT.loadFrom(m.state);
-    } else if (m.t === 'move' && m.byPlayer !== myNum) {
-      OTT.applyMove(m.fromR, m.fromC, m.toR, m.toC);
-      OTT.render();
-    } else if (m.t === 'new') {
-      OTT.newGame(); OTT.render();
-      document.getElementById('winModal').classList.add('hidden');
+function showLobby() {
+  const info = document.getElementById('netInfo');
+  const extras = document.getElementById('netExtras');
+  info.innerHTML = 'Đã kết nối máy chủ. <b>Tạo phòng mới</b> hoặc nhập <b>mã phòng</b> để tham gia.';
+  extras.innerHTML = `
+    <div class="lobby">
+      <button id="btnCreateRoom" class="net-btn primary">Tạo phòng mới</button>
+      <div class="or-sep">— hoặc —</div>
+      <div class="join-row">
+        <input id="joinCodeInput" type="text" maxlength="5"
+               autocomplete="off" spellcheck="false"
+               placeholder="Nhập mã (VD: A2K7X)" />
+        <button id="btnJoinRoom" class="net-btn">Vào phòng</button>
+      </div>
+      <div id="joinError" class="join-error"></div>
+    </div>
+  `;
+  document.getElementById('btnCreateRoom').addEventListener('click', createRoom);
+  document.getElementById('btnJoinRoom').addEventListener('click', joinRoom);
+  const input = document.getElementById('joinCodeInput');
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
+  input.addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+  input.focus();
+}
+
+function showRoomHeader(code, playerNum, extraHtml = '') {
+  document.getElementById('netInfo').innerHTML =
+    `Đang ở phòng <b>${escapeHtml(code)}</b>. Bạn là <b>Người chơi ${playerNum}</b>.`;
+  document.getElementById('netExtras').innerHTML = `
+    <div class="room-code-box">
+      <div class="room-code-label">Mã phòng</div>
+      <div class="room-code">${escapeHtml(code)}</div>
+      <button id="btnCopyCode" class="net-btn tiny">Sao chép</button>
+    </div>
+    ${extraHtml}
+  `;
+  const btn = document.getElementById('btnCopyCode');
+  if (btn) btn.addEventListener('click', () => {
+    navigator.clipboard?.writeText(code);
+    btn.textContent = 'Đã chép ✓';
+    setTimeout(() => (btn.textContent = 'Sao chép'), 1500);
+  });
+}
+
+function createRoom() {
+  document.getElementById('netInfo').textContent = 'Đang tạo phòng...';
+  socket.emit('createRoom');
+}
+
+function joinRoom() {
+  const input = document.getElementById('joinCodeInput');
+  const code = (input.value || '').trim().toUpperCase();
+  const err = document.getElementById('joinError');
+  if (!code) { err.textContent = 'Vui lòng nhập mã phòng.'; return; }
+  err.textContent = '';
+  socket.emit('joinRoom', code);
+}
+
+/* ------------- Socket event handlers ------------- */
+
+function bindSocketEvents() {
+  socket.on('connect_error', (e) => {
+    document.getElementById('netInfo').innerHTML =
+      'Không kết nối được máy chủ Socket.IO (' + escapeHtml(e.message) + ').';
+  });
+
+  socket.on('disconnect', () => {
+    if (window._online.active) appendNetLog('Mất kết nối tới máy chủ.');
+  });
+
+  socket.on('roomCreated', ({ code, playerNum }) => {
+    currentCode = code;
+    window._online.active = true;
+    window._online.myPlayer = playerNum;
+    showRoomHeader(code, playerNum, `
+      <div class="share-box">Chia sẻ mã trên cho bạn của bạn để họ vào cùng phòng.</div>
+      <div class="waiting" id="waitingMsg">⏳ Đang chờ đối thủ vào phòng...</div>
+    `);
+    OTT.newGame();
+    OTT.render();
+  });
+
+  socket.on('roomJoined', ({ code, playerNum, state }) => {
+    currentCode = code;
+    window._online.active = true;
+    window._online.myPlayer = playerNum;
+    showRoomHeader(code, playerNum, `<div class="waiting">✔ Đã vào phòng — bắt đầu chơi!</div>`);
+    if (state) OTT.loadFrom(state);
+    else { OTT.newGame(); OTT.render(); }
+  });
+
+  socket.on('opponentJoined', () => {
+    const w = document.getElementById('waitingMsg');
+    if (w) w.textContent = '✔ Đối thủ đã vào — bắt đầu!';
+    // Chủ phòng gửi ảnh state hiện tại để đảm bảo đồng bộ
+    socket.emit('syncState', OTT.serialize());
+  });
+
+  socket.on('opponentMove', (m) => {
+    OTT.applyMove(m.fromR, m.fromC, m.toR, m.toC);
+    OTT.render();
+    if (OTT.state.winner) {
+      document.getElementById('winModal').classList.remove('hidden');
     }
-  };
+  });
 
-  // First tab picks 1, second picks 2
-  function assignNumbers() {
-    if (myNum) return;
-    if (peers.size === 0) {
-      myNum = 1;
-      window._online.myPlayer = 1;
-      document.getElementById('netInfo').innerHTML =
-        `Bạn là <b>Người chơi 1</b>. Mở tab thứ hai (cùng URL) để chơi.`;
-      OTT.render();
-    } else {
-      // Nếu đã có ai khác thì mình là 2, và bảo họ họ là 1
-      const other = [...peers][0];
-      myNum = 2;
-      window._online.myPlayer = 2;
-      bc.postMessage({ t: 'assign', to: other, num: 1 });
-      bc.postMessage({ t: 'state', state: OTT.serialize() });
-      document.getElementById('netInfo').innerHTML =
-        `Bạn là <b>Người chơi 2</b> (2-tab local).`;
-      OTT.render();
-    }
-  }
+  socket.on('opponentNewGame', () => {
+    OTT.newGame();
+    OTT.render();
+    document.getElementById('winModal').classList.add('hidden');
+    appendNetLog('Đối thủ đã bắt đầu ván mới.');
+  });
 
-  window._online.active = true;
+  socket.on('state', (state) => {
+    if (state) OTT.loadFrom(state);
+  });
+
+  socket.on('opponentLeft', () => {
+    appendNetLog('Đối thủ đã rời phòng.');
+    const w = document.getElementById('waitingMsg');
+    if (w) w.textContent = '⏳ Đối thủ đã rời — chờ người khác...';
+  });
+
+  socket.on('roomError', (msg) => {
+    const err = document.getElementById('joinError');
+    if (err) err.textContent = msg;
+    else document.getElementById('netInfo').textContent = msg;
+  });
+}
+
+function installBroadcast() {
   window._online.broadcastMove = (m) => {
-    bc.postMessage({ t: 'move', ...m, byPlayer: myNum });
-    bc.postMessage({ t: 'state', state: OTT.serialize() });
+    if (socket && socket.connected) socket.emit('move', m);
   };
   window._online.broadcastNew = () => {
-    bc.postMessage({ t: 'new' });
-    bc.postMessage({ t: 'state', state: OTT.serialize() });
+    if (socket && socket.connected) {
+      socket.emit('newGame');
+      // Gửi kèm state mới để late-join sau đó nhận đúng ván
+      socket.emit('syncState', OTT.serialize());
+    }
   };
 }
+
+/* ------------- Helpers ------------- */
 
 function appendNetLog(text) {
   const extras = document.getElementById('netExtras');
   if (!extras) return;
   const d = document.createElement('div');
   d.textContent = text;
-  d.style.color = 'var(--muted)';
-  d.style.fontSize = '12px';
+  d.className = 'net-log-line';
   extras.appendChild(d);
 }
 
@@ -233,6 +231,3 @@ function escapeHtml(s) {
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
 }
-
-window.startOnline = startOnline;
-window.stopOnline  = stopOnline;
