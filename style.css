@@ -262,6 +262,16 @@ html, body {
 .waiting { color: var(--muted); font-size: 13px; text-align: center; padding: 6px 0; }
 .net-log-line { color: var(--muted); font-size: 12px; margin-top: 4px; text-align: center; }
 
+.share-link-box { background: var(--panel-2); border: 1px dashed var(--line); padding: 10px; border-radius: 10px; margin: 8px 0; }
+.share-link-row { display: flex; gap: 6px; margin-top: 4px; }
+.share-link-row input {
+  flex: 1;
+  background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  padding: 8px; border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 /* small piece icons for counts */
 .mini {
   display: inline-block; width: 18px; height: 18px; border-radius: 50%;

@@ -10,6 +10,7 @@
 
 const path = require('path');
 const http = require('http');
+const os   = require('os');
 const express = require('express');
 const { Server } = require('socket.io');
 
@@ -100,6 +101,20 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`OTTv2 server đang chạy tại http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log('');
+  console.log('  OTTv2 server đang chạy — mở các địa chỉ dưới đây:');
+  console.log('    http://localhost:' + PORT + '                (máy đang chạy server)');
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const ni of nets[name] || []) {
+      if (ni.family === 'IPv4' && !ni.internal) {
+        console.log('    http://' + ni.address + ':' + PORT + '    (chia sẻ cho máy khác trong cùng mạng LAN/Wi-Fi)');
+      }
+    }
+  }
+  console.log('');
+  console.log('  Máy khác trong LAN không mở được? Kiểm tra Firewall của Windows cho port ' + PORT + '.');
+  console.log('  Khác mạng (khác Wi-Fi)? Dùng ngrok/cloudflared để tạo tunnel public, hoặc deploy lên Render.');
+  console.log('');
 });

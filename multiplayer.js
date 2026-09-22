@@ -87,6 +87,16 @@ function openNetModal() {
 function showLobby() {
   const info = document.getElementById('netInfo');
   const extras = document.getElementById('netExtras');
+
+  // Auto-join nếu URL có ?room=XXXXX
+  const autoRoom = new URLSearchParams(location.search).get('room');
+  if (autoRoom) {
+    info.textContent = 'Đang vào phòng ' + autoRoom + ' từ đường dẫn chia sẻ...';
+    extras.innerHTML = '';
+    socket.emit('joinRoom', autoRoom);
+    return;
+  }
+
   info.innerHTML = 'Đã kết nối máy chủ. <b>Tạo phòng mới</b> hoặc nhập <b>mã phòng</b> để tham gia.';
   extras.innerHTML = `
     <div class="lobby">
@@ -109,6 +119,17 @@ function showLobby() {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   });
   input.focus();
+}
+
+function buildShareLink(code) {
+  const url = new URL(location.href);
+  // dọn params cũ để chia sẻ sạch
+  url.searchParams.delete('room');
+  url.searchParams.delete('server');
+  url.searchParams.set('room', code);
+  const s = resolveServerUrl();
+  if (s) url.searchParams.set('server', s);
+  return url.toString();
 }
 
 function showRoomHeader(code, playerNum, extraHtml = '') {
@@ -148,8 +169,14 @@ function joinRoom() {
 
 function bindSocketEvents() {
   socket.on('connect_error', (e) => {
+    const target = resolveServerUrl() || (location.origin + ' (same-origin)');
     document.getElementById('netInfo').innerHTML =
-      'Không kết nối được máy chủ Socket.IO (' + escapeHtml(e.message) + ').';
+      'Không kết nối được Socket.IO server tại <code>' + escapeHtml(target) + '</code> ' +
+      '(' + escapeHtml(e.message) + ').<br>' +
+      'Kiểm tra: (a) server có đang chạy <code>npm start</code> không, ' +
+      '(b) máy khác trong LAN thì URL phải là địa chỉ IP LAN (không phải <code>localhost</code>) và mở port qua Firewall, ' +
+      '(c) khác mạng thì cần tunnel (ngrok) hoặc deploy lên Render.';
+    document.getElementById('netExtras').innerHTML = '';
   });
 
   socket.on('disconnect', () => {
@@ -160,10 +187,28 @@ function bindSocketEvents() {
     currentCode = code;
     window._online.active = true;
     window._online.myPlayer = playerNum;
+    const link = buildShareLink(code);
     showRoomHeader(code, playerNum, `
-      <div class="share-box">Chia sẻ mã trên cho bạn của bạn để họ vào cùng phòng.</div>
+      <div class="share-link-box">
+        <div class="room-code-label">Đường dẫn chia sẻ (mở trên máy bạn của bạn)</div>
+        <div class="share-link-row">
+          <input id="shareLinkInput" readonly value="${escapeHtml(link)}" />
+          <button id="btnCopyLink" class="net-btn tiny">Sao chép</button>
+        </div>
+      </div>
+      <div class="share-box">Hoặc gửi mã <b>${escapeHtml(code)}</b> để họ nhập tay.</div>
       <div class="waiting" id="waitingMsg">⏳ Đang chờ đối thủ vào phòng...</div>
     `);
+    const copyBtn = document.getElementById('btnCopyLink');
+    const linkInp = document.getElementById('shareLinkInput');
+    if (copyBtn && linkInp) {
+      copyBtn.addEventListener('click', () => {
+        linkInp.select();
+        navigator.clipboard?.writeText(linkInp.value);
+        copyBtn.textContent = 'Đã chép ✓';
+        setTimeout(() => (copyBtn.textContent = 'Sao chép'), 1500);
+      });
+    }
     OTT.newGame();
     OTT.render();
   });
