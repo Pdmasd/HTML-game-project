@@ -230,8 +230,8 @@ function render() {
     const p = state.board[r][c];
     if (p) {
       const el = document.createElement('div');
-      el.className = 'piece p' + p.player;
-      el.textContent = TYPE_ICON[p.type];
+      el.className = 'piece p' + p.player + ' t-' + p.type;
+      el.innerHTML = `<span class="icon">${TYPE_ICON[p.type]}</span>`;
       el.title = TYPE_VI[p.type] + ' — P' + p.player + ' — ' + coordName(r, c);
       cell.appendChild(el);
     }
@@ -279,7 +279,7 @@ function renderCounts(player, container) {
     const n = countType(player, t);
     const el = document.createElement('div');
     el.className = 'cnt' + (n === 0 ? ' dead' : '');
-    el.innerHTML = `<span class="mini p${player}">${TYPE_ICON[t]}</span> ${TYPE_VI[t]}: <b>${n}</b>`;
+    el.innerHTML = `<span class="mini p${player}"><span class="icon">${TYPE_ICON[t]}</span></span> ${TYPE_VI[t]}: <b>${n}</b>`;
     container.appendChild(el);
   }
 }
