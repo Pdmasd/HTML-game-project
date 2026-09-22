@@ -210,6 +210,58 @@ html, body {
 
 .cell.blocked-hint { cursor: not-allowed; }
 
+/* ---------- Multiplayer modal ---------- */
+.net-card { width: min(460px, 92vw); text-align: left; }
+.net-card h2 { text-align: center; }
+.net-card p  { text-align: center; }
+
+.lobby {
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+  margin-top: 10px;
+}
+.lobby .or-sep {
+  text-align: center; color: var(--muted); font-size: 12px;
+  letter-spacing: 1px;
+}
+.lobby .join-row { display: flex; gap: 8px; }
+.lobby .join-row input {
+  flex: 1;
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--text); padding: 10px 12px; border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px; letter-spacing: 4px; text-align: center;
+  text-transform: uppercase;
+}
+.lobby .join-error {
+  color: #ffb35c; font-size: 13px; min-height: 18px; text-align: center;
+}
+
+.net-btn {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 14px; cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.net-btn:hover { background: #262c56; }
+.net-btn.primary { background: var(--accent); color: #0b0e20; border-color: transparent; }
+.net-btn.primary:hover { filter: brightness(1.05); }
+.net-btn.tiny { padding: 4px 10px; font-size: 12px; font-weight: 500; }
+
+.room-code-box {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px dashed var(--line);
+  padding: 10px 12px; border-radius: 10px; margin: 8px 0;
+}
+.room-code-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.room-code {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px; font-weight: 800; letter-spacing: 6px;
+  color: var(--accent); text-align: center;
+}
+
+.waiting { color: var(--muted); font-size: 13px; text-align: center; padding: 6px 0; }
+.net-log-line { color: var(--muted); font-size: 12px; margin-top: 4px; text-align: center; }
+
 /* small piece icons for counts */
 .mini {
   display: inline-block; width: 18px; height: 18px; border-radius: 50%;
