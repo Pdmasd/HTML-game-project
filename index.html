@@ -3,84 +3,298 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Oẳn Tù Tì v2 (OTTv2)</title>
+
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+
+  <!-- PlayHTML shared state -->
+  <div id="ott-online-state"></div>
+
   <div id="app">
+
     <header class="topbar">
-      <h1>Oẳn Tù Tì v2 <span class="sub">— 2 người chơi trên bàn 9×9</span></h1>
+
+      <h1>
+        Oẳn Tù Tì v2
+        <span class="sub">— 2 người chơi trên bàn 9×9</span>
+      </h1>
+
       <div class="mode-switch">
-        <label><input type="radio" name="mode" value="hotseat" checked /> Chung máy (Hotseat)</label>
-        <label><input type="radio" name="mode" value="online" /> Trực tuyến (PlayroomKit)</label>
+
+        <label>
+          <input
+            type="radio"
+            name="mode"
+            value="hotseat"
+            checked
+          />
+          Chung máy (Hotseat)
+        </label>
+
+        <label>
+          <input
+            type="radio"
+            name="mode"
+            value="online"
+          />
+          Trực tuyến (PlayHTML)
+        </label>
+
       </div>
+
     </header>
 
+
     <main class="layout">
+
+      <!-- ==================== PLAYER 1 ==================== -->
+
       <aside class="side left">
+
         <div class="player-card" id="p1card">
-          <h2>Người chơi 1 <span class="tag red">Đỏ</span></h2>
-          <div class="target">Đích thắng: <b>i9</b> (góc phải-trên)</div>
-          <div class="counts" id="p1counts"></div>
+
+          <h2>
+            Người chơi 1
+            <span class="tag red">Đỏ</span>
+          </h2>
+
+          <div class="target">
+            Đích thắng:
+            <b>i9</b>
+            (góc phải-trên)
+          </div>
+
+          <div
+            class="counts"
+            id="p1counts">
+          </div>
+
         </div>
+
+
         <div class="rules">
+
           <h3>Luật</h3>
+
           <ul>
-            <li>Mỗi quân đi 1 ô theo 8 hướng (như quân Vua).</li>
-            <li>Đấm ăn Kéo · Kéo ăn Lá · Lá ăn Đấm.</li>
-            <li>Cùng loại: <b>chặn</b>, không ăn nhau.</li>
-            <li>Thua RPS thì <b>không được đi vào</b> ô đó.</li>
-            <li>Thắng: ăn sạch 1 loại quân địch <b>hoặc</b> đưa quân vào ô đích của mình (P1: i9, P2: a1).</li>
+
+            <li>
+              Mỗi quân đi 1 ô theo 8 hướng
+              (như quân Vua).
+            </li>
+
+            <li>
+              Đấm ăn Kéo · Kéo ăn Lá · Lá ăn Đấm.
+            </li>
+
+            <li>
+              Cùng loại:
+              <b>chặn</b>,
+              không ăn nhau.
+            </li>
+
+            <li>
+              Thua RPS thì
+              <b>không được đi vào</b>
+              ô đó.
+            </li>
+
+            <li>
+              Thắng: ăn sạch 1 loại quân địch
+              <b>hoặc</b>
+              đưa quân vào ô đích của mình
+              (P1: i9, P2: a1).
+            </li>
+
           </ul>
+
         </div>
+
       </aside>
+
+
+      <!-- ==================== GAME BOARD ==================== -->
 
       <section class="board-wrap">
-        <div class="turn-banner" id="turnBanner">Lượt: Người chơi 1</div>
+
+        <div
+          class="turn-banner"
+          id="turnBanner">
+          Lượt: Người chơi 1
+        </div>
+
+
         <div class="board-container">
-          <div class="ranks" id="ranks"></div>
-          <div id="board" class="board"></div>
-          <div class="files" id="files"></div>
+
+          <div
+            class="ranks"
+            id="ranks">
+          </div>
+
+          <div
+            id="board"
+            class="board">
+          </div>
+
+          <div
+            class="files"
+            id="files">
+          </div>
+
         </div>
+
+
         <div class="controls">
-          <button id="btnNew">Ván mới</button>
-          <button id="btnUndo">Hoàn tác (Hotseat)</button>
-          <span class="status" id="status"></span>
+
+          <button id="btnNew">
+            Ván mới
+          </button>
+
+          <button id="btnUndo">
+            Hoàn tác (Hotseat)
+          </button>
+
+          <span
+            class="status"
+            id="status">
+          </span>
+
         </div>
+
       </section>
 
+
+      <!-- ==================== PLAYER 2 ==================== -->
+
       <aside class="side right">
-        <div class="player-card" id="p2card">
-          <h2>Người chơi 2 <span class="tag blue">Xanh</span></h2>
-          <div class="target">Đích thắng: <b>a1</b> (góc trái-dưới)</div>
-          <div class="counts" id="p2counts"></div>
+
+        <div
+          class="player-card"
+          id="p2card">
+
+          <h2>
+            Người chơi 2
+            <span class="tag blue">Xanh</span>
+          </h2>
+
+          <div class="target">
+            Đích thắng:
+            <b>a1</b>
+            (góc trái-dưới)
+          </div>
+
+          <div
+            class="counts"
+            id="p2counts">
+          </div>
+
         </div>
+
+
         <div class="log-panel">
+
           <h3>Nhật ký</h3>
+
           <ol id="log"></ol>
+
         </div>
+
       </aside>
+
     </main>
 
-    <div class="modal hidden" id="winModal">
-      <div class="modal-card">
-        <h2 id="winTitle">Kết thúc!</h2>
-        <p id="winDesc"></p>
-        <button id="btnWinNew">Ván mới</button>
-      </div>
+
+    <!-- ==================== ONLINE PANEL ==================== -->
+
+    <div
+      class="online-panel"
+      id="onlinePanel">
+
+      <h3>Chơi trực tuyến</h3>
+
+      <p id="onlineStatus">
+        Đang chờ người chơi...
+      </p>
+
+      <p id="myPlayer">
+        Chưa chọn người chơi
+      </p>
+
+      <button id="joinP1">
+        Chơi Player 1
+      </button>
+
+      <button id="joinP2">
+        Chơi Player 2
+      </button>
+
     </div>
 
-    <div class="modal hidden" id="netModal">
+
+    <!-- ==================== WIN MODAL ==================== -->
+
+    <div
+      class="modal hidden"
+      id="winModal">
+
       <div class="modal-card">
-        <h2>Chế độ trực tuyến</h2>
-        <p id="netInfo">Đang khởi tạo phòng chơi...</p>
-        <div id="netExtras"></div>
-        <button id="btnNetClose">Đóng</button>
+
+        <h2 id="winTitle">
+          Kết thúc!
+        </h2>
+
+        <p id="winDesc"></p>
+
+        <button id="btnWinNew">
+          Ván mới
+        </button>
+
       </div>
+
     </div>
+
+
+    <!-- ==================== ONLINE MODAL ==================== -->
+
+    <div
+      class="modal hidden"
+      id="netModal">
+
+      <div class="modal-card">
+
+        <h2>
+          Chế độ trực tuyến
+        </h2>
+
+        <p id="netInfo">
+          Đang khởi tạo phòng chơi...
+        </p>
+
+        <div id="netExtras"></div>
+
+        <button id="btnNetClose">
+          Đóng
+        </button>
+
+      </div>
+
+    </div>
+
   </div>
 
+
+  <!-- ==================== JAVASCRIPT ==================== -->
+
   <script src="game.js"></script>
-  <script src="multiplayer.js"></script>
+
+  <script
+    type="module"
+    src="multiplayer.js">
+  </script>
+
 </body>
 </html>
