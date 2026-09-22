@@ -36,6 +36,30 @@ Chế độ **Hotseat** (2 người 1 máy) cũng chạy tốt nếu bạn chỉ
   - Server (`server.js`) chỉ relay nước đi giữa 2 client, giữ một ảnh
     state gần nhất để đồng bộ khi có người vào giữa chừng.
 
+## Triển khai lên Vercel
+
+Vercel là serverless — chỉ host được **phần tĩnh** (client).  Server
+Socket.IO cần chỗ chạy 24/7 (Render/Railway/Fly...), không hợp Vercel.
+
+1. **Deploy client lên Vercel** (chỉ vài giây):
+   - Vào https://vercel.com/new
+   - Import repo `Pdmasd/HTML-game-project`
+   - Bấm **Deploy** — không cần cấu hình gì thêm (đã có `vercel.json`).
+   - Xong có URL kiểu `https://html-game-project.vercel.app`.
+
+2. **Deploy server Socket.IO lên Render** (miễn phí):
+   - Vào https://dashboard.render.com/select-repo?type=blueprint
+   - Chọn repo này → Render đọc `render.yaml` tự deploy → có URL kiểu
+     `https://ottv2-server-xxxx.onrender.com`.
+
+3. **Kết nối 2 phần** — chọn 1 trong 2 cách:
+   - **Sửa code**: mở [index.html](index.html) sửa
+     `window.OTT_SERVER_URL = "https://ottv2-server-xxxx.onrender.com";`
+     rồi push lại → Vercel tự deploy phiên bản mới.
+   - **Không sửa code**: người chơi mở
+     `https://html-game-project.vercel.app/?server=https://ottv2-server-xxxx.onrender.com`
+     — client lưu vào `localStorage`, các lần sau vào thẳng URL Vercel là được.
+
 ## Triển khai lên GitHub Pages
 
 GitHub Pages chỉ phục vụ tĩnh, nên bạn cần **deploy `server.js` riêng** ở nơi
