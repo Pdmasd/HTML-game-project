@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: ottv2-server
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    autoDeploy: true
