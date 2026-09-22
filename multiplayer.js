@@ -32,11 +32,25 @@ async function startOnline() {
     return;
   }
 
-  info.textContent = 'Đang kết nối tới máy chủ...';
+  const serverUrl = resolveServerUrl();
+  const onPages = /\.github\.io$/i.test(location.hostname);
+  if (onPages && !serverUrl) {
+    info.innerHTML =
+      'Trang này đang chạy trên <b>GitHub Pages</b> (chỉ tĩnh) — chưa cấu hình địa chỉ Socket.IO server.<br>' +
+      'Deploy <code>server.js</code> lên Render / Railway / Fly / Glitch, rồi sửa ' +
+      '<code>window.OTT_SERVER_URL</code> trong <code>index.html</code> thành URL server đó ' +
+      '(hoặc mở với <code>?server=https://your-server</code>).';
+    extras.innerHTML = '';
+    return;
+  }
+
+  info.textContent = serverUrl
+    ? ('Đang kết nối tới ' + serverUrl + ' ...')
+    : 'Đang kết nối tới máy chủ...';
   extras.innerHTML = '';
 
   if (!socket) {
-    socket = io();
+    socket = serverUrl ? io(serverUrl, { transports: ['websocket', 'polling'] }) : io();
     bindSocketEvents();
     installBroadcast();
   }
@@ -216,6 +230,17 @@ function installBroadcast() {
 }
 
 /* ------------- Helpers ------------- */
+
+function resolveServerUrl() {
+  const q = new URLSearchParams(location.search).get('server');
+  if (q) { try { localStorage.setItem('ott_server_url', q); } catch (_) {} return q; }
+  if (window.OTT_SERVER_URL) return String(window.OTT_SERVER_URL);
+  try {
+    const saved = localStorage.getItem('ott_server_url');
+    if (saved) return saved;
+  } catch (_) {}
+  return '';
+}
 
 function appendNetLog(text) {
   const extras = document.getElementById('netExtras');

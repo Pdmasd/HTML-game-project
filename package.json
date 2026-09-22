@@ -1,0 +1,14 @@
+{
+  "name": "ottv2-multiplayer",
+  "version": "1.0.0",
+  "description": "Server Socket.IO cho game Oẳn Tù Tì v2 (2 người, bàn 9x9).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

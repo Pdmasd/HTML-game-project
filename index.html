@@ -80,7 +80,15 @@
     </div>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <!--
+    OTT_SERVER_URL: địa chỉ Socket.IO server công khai.
+    - Để trống ("") khi bạn chạy tại chỗ (`npm start`) — client sẽ tự nối same-origin.
+    - Khi triển khai (VD chạy trang tĩnh trên GitHub Pages), sửa dòng dưới thành
+      URL server đã deploy, ví dụ:  window.OTT_SERVER_URL = "https://ottv2.onrender.com";
+    Bạn cũng có thể ghi đè qua query string ?server=https://host  hoặc  localStorage.setItem('ott_server_url', 'https://host').
+  -->
+  <script>window.OTT_SERVER_URL = "";</script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
   <script src="game.js"></script>
   <script src="multiplayer.js"></script>
 </body>
